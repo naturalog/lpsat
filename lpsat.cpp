@@ -11,8 +11,9 @@ using namespace Eigen;
 
 typedef long double scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
+typedef pair<mat /* problem matrix */, mat /* rhs, 'sign count' */> lpsat;
 
-pair<mat, mat> dimacs2eigen(istream& is) {
+lpsat dimacs2eigen(istream& is) {
 	string str;
 	uint rows, cols;
 	mat m, rhs;
@@ -32,32 +33,23 @@ pair<mat, mat> dimacs2eigen(istream& is) {
 		rhs(n,0) = (v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
 	mat a(1, cols); for (uint n=1;n<=cols;n++)a(0,n-1)=n;
-	cout<<a<<endl;
-	cout<<m<<endl;
-	cout<<a<<endl;
-	return make_pair(m, rhs);
+//	cout << a << endl << m << endl << a << endl << rhs.transpose() << endl;
+	return lpsat(m, rhs);
 }
 
-mat cnf;
-
-mat objective(mat x, mat& j) {
-	mat r(cnf*x);
-	j = cnf.transpose();
-	return r;
-}
+//pair<scalar, mat> objective(const mat& x, const lpsat& lp) {
+//	scalar r = (cnf * x).squaredNorm();
+//	return make_pair(r, cnf * r);
+//}
 
 int main(int argc,char** argv){
-	auto p = dimacs2eigen(cin);
-	cnf = p.first;
-	mat x = mat::Ones(cnf.cols(), 1);
-	mat j = mat::Zero(cnf.cols(), cnf.rows());
-	cout << "F:" << endl <<(cnf * x).transpose()<<endl<<endl
-	     << "JT:" << endl << cnf <<endl<<endl
-	     << "JTJ:" << endl << cnf.transpose() * cnf <<endl<<endl;
-	JacobiSVD<mat> svd(cnf, ComputeThinU | ComputeThinV);
-	cout << "D:" << endl << svd.singularValues() << endl;
+	lpsat p = dimacs2eigen(cin);
+	JacobiSVD<mat> svd(p.first, ComputeThinU | ComputeThinV);
+//	cout << "D:" << endl << svd.singularValues().transpose() << endl;
 //	cout<<j.squaredNorm()<<endl;
-	cout << endl << svd.solve(p.second) << endl;
+	mat xh = svd.solve(p.second);
+	cout << endl << "xh:" << endl << xh.norm() << endl << x.mean() << endl;
+//	cout << endl << (p.second.transpose()-svd.solve(p.second)).norm() << endl;
 
         return 0;
 }
