@@ -18,47 +18,27 @@ const scalar one = 1;
 const scalar lambda = 0;
 scalar lastloss;
 const scalar pi = acos(-one);
-mat lgup;
 uint iter = 0, i2pr = 1000;
-
-//// hypothesis
-//mat h(const lpsat& lp, const mat& x)	{ return lp.first * mat(x.array().sin().square()); }
-////gradient
-//mat gh(const lpsat& lp, const mat& x)	{ return (lp.first * mat((x*2.).array().sin()).transpose()).transpose(); }
-////hessian
-//mat Hh(const lpsat& lp, const mat& x)	{ return (lp.first * mat((x*2.).array().cos()).asDiagonal()) * 2.; }
-//
-//scalar loss(const lpsat& lp, const mat& x) { 
-//	lastloss = (h(lp, x) /*- lp.second*/).squaredNorm() * .5 - lambda * x.squaredNorm();
-//        if (iter % i2pr == 0) cout<<"loss:"<<endl<<(sqrt(lastloss)/(lp.first.rows()/*-lp.first.cols()*/))<<endl; 
-//        return lastloss;
-//}
-//
-//mat gloss(const lpsat& lp, const mat& x) {
-//        return gh(lp, x) * (h(lp, x)/* - lp.second*/) - lambda * x;
-//}
-//
-//mat Hloss(const lpsat& lp, const mat& x) {
-//        mat outer, r = Hh(lp, x) * h(lp, x) + (outer=gh(lp, x).transpose() * gh(lp, x));
-//	if (outer.rows() == 1) throw 0;
-//	return r;
-//}
+mat M, sinx2, sin2x, cos2x, H, g, mr;
 
 void gdupdate(const lpsat& lp, mat& x) { 
-//	lgup = gloss(lp, x);
-	mat M = lp.first;
-	mat sin2x = (x*2.).array().sin();
-	mat cos2x = (x*2.).array().cos();
-	mat H = M * cos2x.asDiagonal() * 2.;
-	mat g = sin2x.transpose() * M.transpose();
+	mr = mat::Identity(lp.second.rows(), lp.second.rows());
+	for (uint n = 0; n < lp.second.rows(); n++) mr(n,n) = lp.second(n, 0) ? one / lp.second(n, 0) : 0;
+	M = mr * lp.first;
+	sinx2 = x.array().sin().square();
+	sin2x = (x*2.).array().sin();
+	cos2x = (x*2.).array().cos();
+	H = M * cos2x.asDiagonal() * 2.;
+	g = sin2x.transpose() * M.transpose();
         JacobiSVD<mat> svd(H, ComputeThinU | ComputeThinV);
-	x += svd.solve(g.transpose());
+	x -= svd.solve(g.transpose());
 	if (iter % i2pr == 0) {
+		cout<<"min err:"<<endl<<(M * sinx2 - lp.second).minCoeff()<<endl;
 		cout<<"grad norm:"<<endl<<g.norm()<<endl;
 		cout<<"grad:"<<endl<<g<<endl;
 		cout<<"Hessian singular vals:"<<endl<<svd.singularValues().transpose()<<endl;
 	        cout<<"xh:"<<endl<<x.transpose()<<endl;
-	        cout<<"sin(xh)^2:"<<endl<<x.array().sin().square().transpose()<<endl<<endl<<iter<<endl;
+	        cout<<"sin(xh)^2:"<<endl<<sinx2.transpose()<<endl<<endl<<iter<<endl;
 	}
 }
 
