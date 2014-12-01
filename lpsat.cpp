@@ -30,7 +30,7 @@ mat gh(const lpsat& lp, const mat& x) {
 
 scalar loss(const lpsat& lp, const mat& x) { 
 	lastloss = (h(lp, x) /*- lp.second*/).squaredNorm() * .5;
-        if (iter % 10000 == 0) cout<<"loss:"<<endl<<(sqrt(lastloss)/p.first.rows())<<endl; 
+        if (iter % 10000 == 0) cout<<"loss:"<<endl<<(sqrt(lastloss)/lp.first.rows())<<endl; 
         return lastloss;
 }
 
