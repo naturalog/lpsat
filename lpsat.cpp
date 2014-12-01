@@ -48,7 +48,7 @@ int main(int argc,char** argv){
 //	cout << "D:" << endl << svd.singularValues().transpose() << endl;
 //	cout<<j.squaredNorm()<<endl;
 	mat xh = svd.solve(p.second);
-	cout << endl << "xh:" << endl << xh.norm() << endl << x.mean() << endl;
+	cout << endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl;
 //	cout << endl << (p.second.transpose()-svd.solve(p.second)).norm() << endl;
 
         return 0;
