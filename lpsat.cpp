@@ -18,7 +18,7 @@ const scalar one = 1;
 const scalar lambda = 0;
 scalar lastloss;
 const scalar pi = acos(-one);
-uint iter = 0, i2pr = 1000;
+uint iter = 0, i2pr = 250;
 mat M, sinx2, sin2x, cos2x, H, g, mr;
 
 void gdupdate(const lpsat& lp, mat& x) { 
@@ -31,9 +31,9 @@ void gdupdate(const lpsat& lp, mat& x) {
 	H = M * cos2x.asDiagonal() * 2.;
 	g = sin2x.transpose() * M.transpose();
         JacobiSVD<mat> svd(H, ComputeThinU | ComputeThinV);
-	x -= svd.solve(g.transpose());
+	x += svd.solve(g.transpose());
 	if (iter % i2pr == 0) {
-		cout<<"min err:"<<endl<<(M * sinx2 - lp.second).minCoeff()<<endl;
+		cout<<"min err:"<<endl<<(lp.first * sinx2 - lp.second).minCoeff()<<endl;
 		cout<<"grad norm:"<<endl<<g.norm()<<endl;
 		cout<<"grad:"<<endl<<g<<endl;
 		cout<<"Hessian singular vals:"<<endl<<svd.singularValues().transpose()<<endl;
