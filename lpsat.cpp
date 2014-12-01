@@ -73,7 +73,7 @@ int main(int argc,char** argv){
 	cout << endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl;
 
 	for (iter = 0;iter < 100000; iter++)  
-		gdupdate(p, x); 
+		newtonupdate(p, x); 
 
         return 0;
 }
