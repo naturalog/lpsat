@@ -2,6 +2,7 @@
 #include <cmath>
 #include <map>
 #include <cstdlib>
+#include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
 #include <utility>
@@ -13,7 +14,46 @@ typedef long double scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
 typedef pair<mat /* problem matrix */, mat /* rhs, 'sign count' */> lpsat;
 
-const scalar lambda = 1;
+const scalar lambda = 0;
+scalar lastloss;
+mat lgup;
+uint iter = 0;
+mat h(const lpsat& lp, const mat& x) { 
+	mat r = lp.first * mat(x.array().sin().square()); 
+//	cout<<"h:"<<r.rows()<<'x'<<r.cols()<<endl<<r.transpose()<<endl;
+	return r;
+}
+
+mat gh(const lpsat& lp, const mat& x) { 
+	mat r = (lp.first * mat((x*2.).array().sin()).asDiagonal()).transpose();	
+//        cout<<"gh:"<<r.rows()<<'x'<<r.cols()<<endl<<r<<endl;
+        return r;
+}
+
+scalar loss(const lpsat& lp, const mat& x) { 
+	lastloss = (h(lp, x) /*- lp.second*/).squaredNorm() * .5;
+        if (iter % 10000 == 0) cout<<"loss:"<<endl<<lastloss<<endl; 
+        return lastloss;
+}
+
+mat gloss(const lpsat& lp, const mat& x) {
+	mat a = h(lp, x)/* - lp.second*/;
+	mat b = gh(lp, x); 
+//        cout<<a.rows()<<'x'<<a.cols()<<endl;
+//        cout<<b.rows()<<'x'<<b.cols()<<endl;
+	mat r = b * a;//(b * a).transpose();
+//        cout<<"gloss:"<<r.rows()<<'x'<<r.cols()<<endl<<r<<endl;
+        return r;
+}
+
+void gdupdate(const lpsat& lp, mat& x) { 
+	lgup = gloss(lp, x);
+	x += lgup;
+	if (iter % 10000 == 0) {
+	        cout<<"xh:"<<endl<<x.transpose()<<endl;
+	        cout<<"s2xh:"<<endl<<x.array().sin().square().transpose()<<endl;
+	}
+}
 
 lpsat dimacs2eigen(istream& is) {
 	string str;
@@ -47,9 +87,14 @@ lpsat dimacs2eigen(istream& is) {
 int main(int argc,char** argv){
 	lpsat p = dimacs2eigen(cin);
 	JacobiSVD<mat> svd(p.first, ComputeThinU | ComputeThinV);
-	mat xh = svd.solve(p.second);
+	mat xh = svd.solve(p.second), x = mat::Ones(p.first.cols(), 1) * .5;
 //	cout<<p.first<<endl<<p.second<<endl;
 	cout << endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl;
+
+	for (iter = 0;iter < 1000000; iter++) { 
+		if (iter % 10000 == 0) cout<<loss(p, x)<<','; 
+		gdupdate(p, x); 
+	}
 
         return 0;
 }
