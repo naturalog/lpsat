@@ -6,11 +6,14 @@
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
 #include <utility>
+#include <mpreal.h>
+#include <eigen3/unsupported/Eigen/MPRealSupport>
 
+using namespace mpfr;
 using namespace std;
 using namespace Eigen;
 
-typedef long double scalar;
+typedef mpreal scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
 typedef pair<mat /* problem matrix */, mat /* rhs, 'sign count' */> lpsat;
 
@@ -62,15 +65,16 @@ lpsat dimacs2eigen(istream& is) {
 		m(n,abs(v3) - 1) = v3 > 0 ? -1 : 1;
 		rhs(n,0) = -4;//(v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
+	const scalar lambda = sqrt(one*.5);
 	for (; n < rows + cols; n++) {
 		// x <= 1
-		m(n, n - rows) = 1;
-		rhs(n, 0) = 1;
+		m(n, n - rows) = lambda;
+		rhs(n, 0) = lambda;
 	}
         for (; n < rows + 2 * cols; n++) {
 		// -x <= 1
-                m(n, n - rows - cols) = -1;
-                rhs(n, 0) = 1;
+                m(n, n - rows - cols) = -lambda;
+                rhs(n, 0) = lambda;
         }
 
 //	mat a(1, cols); for (uint n=1;n<=cols;n++)a(0,n-1)=n;
@@ -79,6 +83,7 @@ lpsat dimacs2eigen(istream& is) {
 }
 
 int main(int argc,char** argv){
+	mpreal::set_default_prec(512);
 	lpsat p = dimacs2eigen(cin);
 	scalar a,b;
 	cout<<p.first<<endl;
