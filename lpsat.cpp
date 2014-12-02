@@ -33,7 +33,7 @@ void newtonupdate(const lpsat& lp, mat& x) {
         JacobiSVD<mat> svd(H, ComputeThinU | ComputeThinV);
 	x += svd.solve(g.transpose());
 	if (iter % i2pr == 0) {
-		cout<<"min err:"<<endl<<(lp.first * sinx2 - lp.second).minCoeff()<<endl;
+		cout<<"min err:"<<endl<<(lp.first * sinx2 - lp.second).maxCoeff()<<endl;
 		cout<<"grad norm:"<<endl<<g.norm()<<endl;
 		cout<<"grad:"<<endl<<g<<endl;
 		cout<<"Hessian singular vals:"<<endl<<svd.singularValues().transpose()<<endl;
@@ -49,10 +49,10 @@ lpsat dimacs2eigen(istream& is) {
 
 	do { getline(is, str);	} while (str[0] == 'c');
 	sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
-	m = mat::Zero(rows, cols);
-	rhs = mat(rows, 1);
-
-	for (uint n = 0; n < rows; n++) {
+	m = mat::Zero(rows + 2 * cols, cols);
+	rhs = mat(rows + 2 * cols, 1);
+	uint n = 0;
+	for (; n < rows; n++) {
 		getline(is, str);
 		int v1, v2, v3;
 		sscanf(str.c_str(), "%d %d %d", &v1, &v2, &v3);
@@ -61,6 +61,15 @@ lpsat dimacs2eigen(istream& is) {
 		m(n,abs(v3) - 1) = v3 > 0 ? -1 : 1;
 		rhs(n,0) = (v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
+	for (; n < rows + cols; n++) {
+		m(n, n - rows) = 1; // x<=1
+		rhs(n, 0) = -3;
+	}
+        for (; n < rows + 2 * cols; n++) {
+                m(n, n - rows - cols) = -1; // -x<=1
+                rhs(n, 0) = -3;
+        }
+
 //	mat a(1, cols); for (uint n=1;n<=cols;n++)a(0,n-1)=n;
 //	cout << a << endl << m << endl << a << endl << rhs.transpose() << endl;
 	return lpsat(m, rhs);
@@ -68,12 +77,19 @@ lpsat dimacs2eigen(istream& is) {
 
 int main(int argc,char** argv){
 	lpsat p = dimacs2eigen(cin);
-	JacobiSVD<mat> svd(p.first, ComputeThinU | ComputeThinV);
-	mat xh = svd.solve(p.second), x = mat::Ones(p.first.cols(), 1) * pi * .125;
-	cout << endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl;
+//	cout<<p.first<<endl;
+	JacobiSVD<mat> svd(p.first, ComputeFullU | ComputeFullV);
+	mat xh = svd.solve(p.second), x = mat::Ones(p.first.cols(), 1) * 3;
+	cout << endl << "D:" << endl << svd.singularValues().transpose() << endl
+//		<< endl << "U:" << endl << svd.matrixU().row(1) << endl
+//		<< endl << "U:" << endl << svd.matrixU().col(1).transpose() << endl
+//		<< endl << "V:" << endl << svd.matrixV().row(1) << endl
+//		<< endl << "V:" << endl << svd.matrixV().col(1).transpose() << endl
+		<< endl << "V:" << endl << svd.matrixV() << endl
+		<< endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl;
 
-	for (iter = 0;iter < 100000; iter++)  
-		newtonupdate(p, x); 
+//	for (iter = 0;iter < 1000000; iter++)  
+//		newtonupdate(p, x); 
 
         return 0;
 }
