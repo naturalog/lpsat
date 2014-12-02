@@ -15,6 +15,8 @@ typedef Matrix<scalar, Dynamic, Dynamic> mat;
 typedef pair<mat /* problem matrix */, mat /* rhs, 'sign count' */> lpsat;
 
 const scalar one = 1;
+
+/*
 const scalar lambda = 0;
 scalar lastloss;
 const scalar pi = acos(-one);
@@ -22,14 +24,12 @@ uint iter = 0, i2pr = 250;
 mat M, sinx2, sin2x, cos2x, H, g, mr;
 
 void newtonupdate(const lpsat& lp, mat& x) { 
-	mr = mat::Identity(lp.second.rows(), lp.second.rows());
-	for (uint n = 0; n < lp.second.rows(); n++) mr(n,n) = lp.second(n, 0) ? one / lp.second(n, 0) : 0;
-	M = mr * lp.first;
-	sinx2 = x.array().sin().square();
-	sin2x = (x*2.).array().sin();
-	cos2x = (x*2.).array().cos();
-	H = M * cos2x.asDiagonal() * 2.;
-	g = sin2x.transpose() * M.transpose();
+	M = lp.first;
+	mat MTM = M.transpose() * M;
+	mat MTy = M.transpose() * lp.second;
+	mat r = MTM * x - MTy;
+	mat g = MTM.transpose() * r;
+	mat H = MTM.transpose() * MTM;
         JacobiSVD<mat> svd(H, ComputeThinU | ComputeThinV);
 	x += svd.solve(g.transpose());
 	if (iter % i2pr == 0) {
@@ -41,6 +41,7 @@ void newtonupdate(const lpsat& lp, mat& x) {
 	        cout<<"sin(xh)^2:"<<endl<<sinx2.transpose()<<endl<<endl<<iter<<endl;
 	}
 }
+*/
 
 lpsat dimacs2eigen(istream& is) {
 	string str;
@@ -59,17 +60,17 @@ lpsat dimacs2eigen(istream& is) {
 		m(n,abs(v1) - 1) = v1 > 0 ? -1 : 1;
 		m(n,abs(v2) - 1) = v2 > 0 ? -1 : 1;
 		m(n,abs(v3) - 1) = v3 > 0 ? -1 : 1;
-		rhs(n,0) = 4;//(v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
+		rhs(n,0) = -4;//(v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
 	for (; n < rows + cols; n++) {
 		// x <= 1
-		m(n, n - rows) = 0;//1; // PLAY WITH ME. PUT 1/0
-		rhs(n, 0) = 0;//1;
+		m(n, n - rows) = 1;
+		rhs(n, 0) = 1;
 	}
         for (; n < rows + 2 * cols; n++) {
 		// -x <= 1
-                m(n, n - rows - cols) = 0;//-1; // PLAY WITH ME. PUT -1/0
-                rhs(n, 0) = 0;//1;
+                m(n, n - rows - cols) = -1;
+                rhs(n, 0) = 1;
         }
 
 //	mat a(1, cols); for (uint n=1;n<=cols;n++)a(0,n-1)=n;
@@ -86,16 +87,17 @@ int main(int argc,char** argv){
 	cout << endl << "D^2:" << endl << svd.singularValues().array().square().transpose() << endl
                 << endl << "desired norm of input vector: " << x.norm()
                 << endl << "desired norm of output vector: " << (p.first.transpose() * p.second).norm()
-		<< endl << "ratio (compare to D^2): " << (p.first.transpose() * p.second).norm() / x.norm() 
+		<< endl << "ratio (compare to D): " << (p.first.transpose() * p.second).norm() / x.norm() 
 //		<< endl << "U:" << endl << svd.matrixU().row(1) << endl
 //		<< endl << "U:" << endl << svd.matrixU().col(1).transpose() << endl
 //		<< endl << "V:" << endl << svd.matrixV().row(1) << endl
 //		<< endl << "V:" << endl << svd.matrixV().col(1).transpose() << endl
-		<< endl << "V:" << endl << svd.matrixV() << endl
+	//	<< endl << "V:" << endl << svd.matrixV() << endl
 		<< endl << "sqrt(det):" << endl << svd.singularValues().prod() << endl
 		<< endl << "det:" << endl << pow(svd.singularValues().prod(),2) << endl
 		<< endl << "xh:" << xh.transpose() << endl << xh.norm() << endl << xh.mean() << endl
-		<< endl << "Mxh:" << endl << (p.first * xh).transpose() << endl;
+		<< endl << "Mxh:" << endl << (p.first * xh).transpose() << endl
+		<< endl << "||err||:" << endl << (p.first * xh - p.second).norm() << endl;
 
 //	for (iter = 0;iter < 1000000; iter++)  
 //		newtonupdate(p, x); 
