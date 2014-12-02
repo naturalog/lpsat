@@ -49,26 +49,27 @@ lpsat dimacs2eigen(istream& is) {
 
 	do { getline(is, str);	} while (str[0] == 'c');
 	sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
-	m = mat::Zero(rows + 2 * cols, cols);
+	m = mat::Zero(rows + 2 * cols, cols + 1);
 	rhs = mat(rows + 2 * cols, 1);
 	uint n = 0;
 	for (; n < rows; n++) {
 		getline(is, str);
 		int v1, v2, v3;
 		sscanf(str.c_str(), "%d %d %d", &v1, &v2, &v3);
-		m(n,abs(v1) - 1) = v1 > 0 ? -1 : 1;
-		m(n,abs(v2) - 1) = v2 > 0 ? -1 : 1;
-		m(n,abs(v3) - 1) = v3 > 0 ? -1 : 1;
+		m(n, 0) = 3;
+		m(n,abs(v1)) = v1 > 0 ? -1 : 1;
+		m(n,abs(v2)) = v2 > 0 ? -1 : 1;
+		m(n,abs(v3)) = v3 > 0 ? -1 : 1;
 		rhs(n,0) = (v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
 	for (; n < rows + cols; n++) {
 		// x <= 1
-		m(n, n - rows) = 0; // PLAY WITH ME. PUT 1/0
+		m(n, 1 + n - rows) = 1; // PLAY WITH ME. PUT 1/0
 		rhs(n, 0) = -3;
 	}
         for (; n < rows + 2 * cols; n++) {
 		// -x <= 1
-                m(n, n - rows - cols) = 0; // PLAY WITH ME. PUT 1/0
+                m(n, 1 + n - rows - cols) = -1; // PLAY WITH ME. PUT -1/0
                 rhs(n, 0) = -3;
         }
 
@@ -82,14 +83,14 @@ int main(int argc,char** argv){
 	cout<<p.first<<endl;
 	JacobiSVD<mat> svd(p.first, ComputeFullU | ComputeFullV);
 	mat xh = svd.solve(p.second), x = mat::Ones(p.first.cols(), 1) * 3;
-	cout << endl << "D^2:" << endl << svd.singularValues().array().square() << endl
+	cout << endl << "D^2:" << endl << svd.singularValues().array().square().transpose() << endl
 //		<< endl << "U:" << endl << svd.matrixU().row(1) << endl
 //		<< endl << "U:" << endl << svd.matrixU().col(1).transpose() << endl
 //		<< endl << "V:" << endl << svd.matrixV().row(1) << endl
 //		<< endl << "V:" << endl << svd.matrixV().col(1).transpose() << endl
 		<< endl << "V:" << endl << svd.matrixV() << endl
-//		<< endl << "det:" << endl << svd.singularValues().prod() << endl
-		<< endl << "det^2:" << endl << pow(svd.singularValues().prod(),2) << endl
+		<< endl << "sqrt(det):" << endl << svd.singularValues().prod() << endl
+		<< endl << "det:" << endl << pow(svd.singularValues().prod(),2) << endl
 		<< endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl;
 
 //	for (iter = 0;iter < 1000000; iter++)  
