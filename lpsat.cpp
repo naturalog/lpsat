@@ -92,7 +92,8 @@ int main(int argc,char** argv){
 	cout << endl << "D^2:" << endl << svd.singularValues().array().square().transpose() << endl
                 << endl << "desired norm of input vector: " << x.norm()
                 << endl << "desired norm of output vector: " << (p.first.transpose() * p.second).norm()
-		<< endl << "ratio (compare to D): " << (p.first.transpose() * p.second).norm() / x.norm() 
+		<< endl << "ratio: " << (p.first.transpose() * p.second).norm() / x.norm() 
+		<< endl << "D1/Dn: " << svd.singularValues()(1)/svd.singularValues()(svd.singularValues().size()-1) 
 //		<< endl << "U:" << endl << svd.matrixU().row(1) << endl
 //		<< endl << "U:" << endl << svd.matrixU().col(1).transpose() << endl
 //		<< endl << "V:" << endl << svd.matrixV().row(1) << endl
