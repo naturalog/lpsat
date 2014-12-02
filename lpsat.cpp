@@ -49,27 +49,26 @@ lpsat dimacs2eigen(istream& is) {
 
 	do { getline(is, str);	} while (str[0] == 'c');
 	sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
-	m = mat::Zero(rows + 2 * cols, cols + 1);
+	m = mat::Zero(rows + 2 * cols, cols);
 	rhs = mat(rows + 2 * cols, 1);
 	uint n = 0;
 	for (; n < rows; n++) {
 		getline(is, str);
 		int v1, v2, v3;
 		sscanf(str.c_str(), "%d %d %d", &v1, &v2, &v3);
-		m(n, 0) = 3;
-		m(n,abs(v1)) = v1 > 0 ? -1 : 1;
-		m(n,abs(v2)) = v2 > 0 ? -1 : 1;
-		m(n,abs(v3)) = v3 > 0 ? -1 : 1;
-		rhs(n,0) = 1;//(v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
+		m(n,abs(v1) - 1) = v1 > 0 ? -1 : 1;
+		m(n,abs(v2) - 1) = v2 > 0 ? -1 : 1;
+		m(n,abs(v3) - 1) = v3 > 0 ? -1 : 1;
+		rhs(n,0) = 4;//(v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
 	for (; n < rows + cols; n++) {
 		// x <= 1
-		m(n, 1 + n - rows) = 1; // PLAY WITH ME. PUT 1/0
+		m(n, n - rows) = 1; // PLAY WITH ME. PUT 1/0
 		rhs(n, 0) = 1;
 	}
         for (; n < rows + 2 * cols; n++) {
 		// -x <= 1
-                m(n, 1 + n - rows - cols) = -1; // PLAY WITH ME. PUT -1/0
+                m(n, n - rows - cols) = -1; // PLAY WITH ME. PUT -1/0
                 rhs(n, 0) = 1;
         }
 
@@ -91,7 +90,7 @@ int main(int argc,char** argv){
 		<< endl << "V:" << endl << svd.matrixV() << endl
 		<< endl << "sqrt(det):" << endl << svd.singularValues().prod() << endl
 		<< endl << "det:" << endl << pow(svd.singularValues().prod(),2) << endl
-		<< endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl
+		<< endl << "xh:" << xh.transpose() << endl << xh.norm() << endl << xh.mean() << endl
 		<< endl << "Mxh:" << endl << (p.first * xh).transpose() << endl;
 
 //	for (iter = 0;iter < 1000000; iter++)  
