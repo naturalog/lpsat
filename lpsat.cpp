@@ -60,17 +60,17 @@ lpsat dimacs2eigen(istream& is) {
 		m(n,abs(v1)) = v1 > 0 ? -1 : 1;
 		m(n,abs(v2)) = v2 > 0 ? -1 : 1;
 		m(n,abs(v3)) = v3 > 0 ? -1 : 1;
-		rhs(n,0) = (v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
+		rhs(n,0) = 1;//(v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
 	for (; n < rows + cols; n++) {
 		// x <= 1
 		m(n, 1 + n - rows) = 1; // PLAY WITH ME. PUT 1/0
-		rhs(n, 0) = -3;
+		rhs(n, 0) = 1;
 	}
         for (; n < rows + 2 * cols; n++) {
 		// -x <= 1
                 m(n, 1 + n - rows - cols) = -1; // PLAY WITH ME. PUT -1/0
-                rhs(n, 0) = -3;
+                rhs(n, 0) = 1;
         }
 
 //	mat a(1, cols); for (uint n=1;n<=cols;n++)a(0,n-1)=n;
@@ -91,7 +91,8 @@ int main(int argc,char** argv){
 		<< endl << "V:" << endl << svd.matrixV() << endl
 		<< endl << "sqrt(det):" << endl << svd.singularValues().prod() << endl
 		<< endl << "det:" << endl << pow(svd.singularValues().prod(),2) << endl
-		<< endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl;
+		<< endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl
+		<< endl << "Mxh:" << endl << (p.first * xh).transpose() << endl;
 
 //	for (iter = 0;iter < 1000000; iter++)  
 //		newtonupdate(p, x); 
