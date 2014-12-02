@@ -60,21 +60,21 @@ lpsat dimacs2eigen(istream& is) {
 		getline(is, str);
 		int v1, v2, v3;
 		sscanf(str.c_str(), "%d %d %d", &v1, &v2, &v3);
-		m(n,abs(v1) - 1) = v1 > 0 ? -1 : 1;
-		m(n,abs(v2) - 1) = v2 > 0 ? -1 : 1;
-		m(n,abs(v3) - 1) = v3 > 0 ? -1 : 1;
-		rhs(n,0) = -4;//(v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
+		m(n,abs(v1) - 1) = v1 > 0 ? 1 : -1;
+		m(n,abs(v2) - 1) = v2 > 0 ? 1 : -1;
+		m(n,abs(v3) - 1) = v3 > 0 ? 1 : -1;
+		rhs(n,0) = -2;//(v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
-	const scalar lambda = sqrt(one*.5);
+	const scalar lambda = 2;//sqrt(one*.5);
 	for (; n < rows + cols; n++) {
-		// x <= 1
+		// x >= -1
 		m(n, n - rows) = lambda;
-		rhs(n, 0) = lambda;
+		rhs(n, 0) = -lambda;
 	}
         for (; n < rows + 2 * cols; n++) {
-		// -x <= 1
+		// -x >= -1
                 m(n, n - rows - cols) = -lambda;
-                rhs(n, 0) = lambda;
+                rhs(n, 0) = -lambda;
         }
 
 //	mat a(1, cols); for (uint n=1;n<=cols;n++)a(0,n-1)=n;
@@ -82,8 +82,16 @@ lpsat dimacs2eigen(istream& is) {
 	return lpsat(m, rhs);
 }
 
+mat hinge(mat x, mat y, uint upto) {
+	upto = x.rows();
+	mat r(upto, 1);
+	for (uint n = 0; n < upto; n++) 
+		r(n, 0) = max(y(n, 0) - x(n, 0), 0);
+	return r;
+}
+
 int main(int argc,char** argv){
-	mpreal::set_default_prec(512);
+	mpreal::set_default_prec(256);
 	lpsat p = dimacs2eigen(cin);
 	scalar a,b;
 	cout<<p.first<<endl;
@@ -103,7 +111,10 @@ int main(int argc,char** argv){
 		<< endl << "det:" << endl << pow(svd.singularValues().prod(),2) << endl
 		<< endl << "xh:" << xh.transpose() << endl << xh.norm() << endl << xh.mean() << endl
 		<< endl << "Mxh:" << endl << (p.first * xh).transpose() << endl
-		<< endl << "||err||:" << endl << (p.first * xh - p.second).norm() << endl;
+		<< endl << "rhs:" << endl << p.second.transpose() << endl
+		<< endl << "E(T=>0) : " << endl << (p.first * xh - p.second).transpose() << endl
+		<< endl << "hinge:" << endl << hinge(p.first * xh, p.second, p.first.cols()).transpose() << endl
+		<< endl << "||hinge||:" << endl << -hinge(p.first * xh, p.second, p.first.cols()).sum() << endl;
 
 //	for (iter = 0;iter < 1000000; iter++)  
 //		newtonupdate(p, x); 
