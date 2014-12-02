@@ -82,13 +82,13 @@ int main(int argc,char** argv){
 	cout<<p.first<<endl;
 	JacobiSVD<mat> svd(p.first, ComputeFullU | ComputeFullV);
 	mat xh = svd.solve(p.second), x = mat::Ones(p.first.cols(), 1) * 3;
-	cout << endl << "D:" << endl << svd.singularValues().transpose() << endl
+	cout << endl << "D^2:" << endl << svd.singularValues().array().square() << endl
 //		<< endl << "U:" << endl << svd.matrixU().row(1) << endl
 //		<< endl << "U:" << endl << svd.matrixU().col(1).transpose() << endl
 //		<< endl << "V:" << endl << svd.matrixV().row(1) << endl
 //		<< endl << "V:" << endl << svd.matrixV().col(1).transpose() << endl
 		<< endl << "V:" << endl << svd.matrixV() << endl
-		<< endl << "det:" << endl << svd.singularValues().prod() << endl
+//		<< endl << "det:" << endl << svd.singularValues().prod() << endl
 		<< endl << "det^2:" << endl << pow(svd.singularValues().prod(),2) << endl
 		<< endl << "xh:" << endl << xh.norm() << endl << xh.mean() << endl;
 
