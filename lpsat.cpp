@@ -62,11 +62,13 @@ lpsat dimacs2eigen(istream& is) {
 		rhs(n,0) = (v1 > 0 ? 0 : 1) + (v2 > 0 ? 0 : 1) + (v3 > 0 ? 0 : 1) - 1;
 	}
 	for (; n < rows + cols; n++) {
-		m(n, n - rows) = 1; // x<=1
+		// x <= 1
+		m(n, n - rows) = 0; // PLAY WITH ME. PUT 1/0
 		rhs(n, 0) = -3;
 	}
         for (; n < rows + 2 * cols; n++) {
-                m(n, n - rows - cols) = -1; // -x<=1
+		// -x <= 1
+                m(n, n - rows - cols) = 0; // PLAY WITH ME. PUT 1/0
                 rhs(n, 0) = -3;
         }
 
@@ -77,7 +79,7 @@ lpsat dimacs2eigen(istream& is) {
 
 int main(int argc,char** argv){
 	lpsat p = dimacs2eigen(cin);
-//	cout<<p.first<<endl;
+	cout<<p.first<<endl;
 	JacobiSVD<mat> svd(p.first, ComputeFullU | ComputeFullV);
 	mat xh = svd.solve(p.second), x = mat::Ones(p.first.cols(), 1) * 3;
 	cout << endl << "D:" << endl << svd.singularValues().transpose() << endl
