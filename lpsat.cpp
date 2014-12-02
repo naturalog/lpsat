@@ -63,13 +63,13 @@ lpsat dimacs2eigen(istream& is) {
 	}
 	for (; n < rows + cols; n++) {
 		// x <= 1
-		m(n, n - rows) = 1; // PLAY WITH ME. PUT 1/0
-		rhs(n, 0) = 1;
+		m(n, n - rows) = 0;//1; // PLAY WITH ME. PUT 1/0
+		rhs(n, 0) = 0;//1;
 	}
         for (; n < rows + 2 * cols; n++) {
 		// -x <= 1
-                m(n, n - rows - cols) = -1; // PLAY WITH ME. PUT -1/0
-                rhs(n, 0) = 1;
+                m(n, n - rows - cols) = 0;//-1; // PLAY WITH ME. PUT -1/0
+                rhs(n, 0) = 0;//1;
         }
 
 //	mat a(1, cols); for (uint n=1;n<=cols;n++)a(0,n-1)=n;
@@ -79,12 +79,14 @@ lpsat dimacs2eigen(istream& is) {
 
 int main(int argc,char** argv){
 	lpsat p = dimacs2eigen(cin);
+	scalar a,b;
 	cout<<p.first<<endl;
 	JacobiSVD<mat> svd(p.first, ComputeFullU | ComputeFullV);
 	mat xh = svd.solve(p.second), x = mat::Ones(p.first.cols(), 1);
 	cout << endl << "D^2:" << endl << svd.singularValues().array().square().transpose() << endl
-                << endl << "desired norm of input vector: " << x.norm() 
-                << endl << "desired norm of output vector: " << (p.first.transpose() * p.second).norm() << endl
+                << endl << "desired norm of input vector: " << x.norm()
+                << endl << "desired norm of output vector: " << (p.first.transpose() * p.second).norm()
+		<< endl << "ratio (compare to D^2): " << (p.first.transpose() * p.second).norm() / x.norm() 
 //		<< endl << "U:" << endl << svd.matrixU().row(1) << endl
 //		<< endl << "U:" << endl << svd.matrixU().col(1).transpose() << endl
 //		<< endl << "V:" << endl << svd.matrixV().row(1) << endl
