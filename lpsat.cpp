@@ -8,12 +8,11 @@
 #include <iomanip>
 #include <fstream>
 #include <sys/wait.h>
-#include <Eigen/Sparse>
 
 using namespace std;
 using namespace Eigen;
 
-typedef float scalar;
+typedef long double scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
 const scalar one = 1, two = 2;
 
@@ -76,7 +75,7 @@ bool eval(const mat& m, const mat& x) {
 void read(istream& is, uint iters, uint print, const char* fname = 0) {
 	string str;
         uint rows, cols, n = 0, batch = 0;
-	scalar minj = HUGE_VAL, minf = HUGE_VAL, mins = HUGE_VAL, sn, minhg = HUGE_VAL, jn, fn, hgn, hn, minhn = HUGE_VAL;
+	scalar minj = HUGE_VAL, minf = HUGE_VAL, mins = HUGE_VAL, sn, minhg = -HUGE_VAL, jn, fn, hgn, hn, minhn = -HUGE_VAL;
 	int v;
 	do { getline(is, str); } while (str[0] == 'c');
         sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
@@ -97,14 +96,14 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 		}
         }
 
-	mat step;
+	mat step, sv, sv1;
 	mat *H = new mat[F.rows()];
 	do {
 		x = mat::Ones(cols, 1);// * fabs(batch % 2 ? one - pow(3./4.,(batch-1)/2) : pow(3./4.,batch/2));
 		switch (batch++) {
-			case 0: x *= 0; break;
+			case 0: x *= .5; break;
 			case 1: x *= 1; break;
-			case 2: x *= .5; break;
+			case 2: x *= 0; break;
 			case 3: x *= 1./3.; break;
 			case 4: x *= 2./3.; break;
 			case 5: x *= .25; break;
@@ -128,45 +127,62 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 // https://www8.cs.umu.se/~viklands/tensor.pdf
 			JacobiSVD<mat> svd(J, ComputeFullU | ComputeFullV);
 			step = -svd.solve(F);
-#ifdef HALLEY
+//#ifdef HALLEY
 			mat Hg(F.rows(), step.rows());
 			for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
 			JacobiSVD<mat> svd2(J + Hg, ComputeFullU | ComputeFullV);
-			step -= svd2.solve(Hg * step) / two;
-#endif
-			x += step;
-			if (i % print == 0) cout<<endl<<F.transpose()<<endl<<endl<<x.transpose()<<endl;
+			x += step - svd2.solve(Hg * step) / two;
+			bool found = eval(D, x);
+			if (i == 1/* || found*/) {
+				scalar 	normhk = step.norm(), 
+					M = sqrt((Hg.transpose() * Hg).trace());
+				mat dd = mat::Zero(J.cols(), J.rows());
+				for (uint rr = 0; rr < min(dd.rows(), dd.cols()); rr++)
+					dd(rr, rr) = svd.singularValues()(rr) ? one / svd.singularValues()(rr) : 0;
+				mat jinv = svd.matrixV() * dd * svd.matrixU().transpose();
+//				cout<< <<endl;
+				cout<<"alpha: "<< M * sqrt((jinv.transpose() * jinv).trace()) * normhk<<'\t';
+			}
+//#endif
 			for (uint j = hgn = 0; j < F.rows(); hgn += H[j++].squaredNorm()) ;
 			minj = min(minj, jn = J.norm());
 			minf = min(minf, fn = F.norm());
 			mins = min(mins, sn = step.norm());
-			minhg = min(minhg, hgn = sqrt(hgn));
-			minhn = min(minhn, hn = Hg.norm());
+			minhg = max(minhg, hgn = sqrt(hgn));
+			minhn = max(minhn, hn = Hg.norm());
 
-			if (eval(D, x)) { 
+			if (found || (i%print == 0)) { 
 				if (fname) cout<<fname<<'\t'; 
-				cout	<< "solution found batch " << batch
+//				cout<<endl<<F.transpose()<<endl<<endl<<x.transpose()<<endl;
+				if (found) cout << "solution found ";
+				cout	<< "batch " << batch
 					<<" iteration " <<i
 					<<"\t||J||: "<<jn
 					<<"\t||F||: "<<fn
 					<<"\t||step||: " << sn 
 					<< "\t||Hg||: " << hgn 
-					<< "\t||H: " << hn<<endl; 
-				return; 
+					<< "\t||H||: " << hn<<endl;
+//					<< mat(svd.singularValues()).transpose()<<endl
+//					<< mat(svd2.singularValues()).transpose()<<endl;
+				if (found) return; 
 			}
-			if (sn < 1e-4) break;
+			if (sn < 1e-4) {
+				sv = mat(svd.singularValues()).transpose();
+				sv1 = mat(svd2.singularValues()).transpose();
+				break;
+			}
 		}
 //        	if (fname) cout<<fname<<'\t';
 //	        cout <<"batch: "<<batch<< "\tsatness: " << d /*d * 2*/ <<endl;
-	} while (batch < 6); 
-	if (fname) cout<<fname<<'\t';
+	} while (batch < 1); 
+/*	if (fname) cout<<fname<<'\t';
 	cout 	<< "min||J||: " << minj
 		<<"\tmin||F||: " << minf 
 		<< "\tmin||step||: " << mins 
 		<< "\tx error: " << sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))
-		<< "\tmin||Hg||: "<< minhg 
-		<<"\tmin||H||:"<<minhn <<endl;
-}
+		<< "\tmax||Hg||: "<< minhg 
+		<<"\tmax||H||:"<<minhn <<endl<<sv<<endl<<sv1<<endl;
+*/}
 
 int main(int argc, char** argv) {
 	if (argc < 3) return 1;
