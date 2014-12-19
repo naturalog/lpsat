@@ -136,7 +136,7 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 #endif
 			x += step;
 			if (i % print == 0) cout<<endl<<F.transpose()<<endl<<endl<<x.transpose()<<endl;
-			for (uint j = hgn = 0; j < F.rows(); j++, hgn += H[j].squaredNorm()) ;
+			for (uint j = hgn = 0; j < F.rows(); hgn += H[j++].squaredNorm()) ;
 			minj = min(minj, jn = J.norm());
 			minf = min(minf, fn = F.norm());
 			mins = min(mins, sn = step.norm());
