@@ -42,7 +42,9 @@ inline mat round(const mat& x) {
 //	g *= r;
 	return r;// * r / two;
 }*/
+
 template<typename T> T sgn(const T& t) { return t>0?1:-1; }
+
 inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
         g = mat::Zero(1, x.rows());
 
@@ -128,19 +130,13 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 			step = -svd.solve(F);
 #ifdef HALLEY
 			mat Hg(F.rows(), step.rows());
-			for (uint j = 0; j < Hg.rows(); j++) 
-//				for (uint l = 0; l < Hg.cols(); l++) 
-//					Hg(j, l) = (step.transpose() * H[j].col(l))(0,0);
-					Hg.row(j) = step.transpose() * H[j];
+			for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
 			JacobiSVD<mat> svd2(J + Hg, ComputeFullU | ComputeFullV);
 			step -= svd2.solve(Hg * step) / two;
 #endif
 			x += step;
-			if (i % print == 0) 
-				cout<<endl<<F.transpose()<<endl
-					<<endl<<x.transpose()<<endl;
-			hgn = 0;
-			for (uint j = 0; j < F.rows(); j++) hgn += H[j].squaredNorm();
+			if (i % print == 0) cout<<endl<<F.transpose()<<endl<<endl<<x.transpose()<<endl;
+			for (uint j = hgn = 0; j < F.rows(); j++, hgn += H[j].squaredNorm()) ;
 			minj = min(minj, jn = J.norm());
 			minf = min(minf, fn = F.norm());
 			mins = min(mins, sn = step.norm());
@@ -149,7 +145,13 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 
 			if (eval(D, x)) { 
 				if (fname) cout<<fname<<'\t'; 
-				cout<<"solution found batch "<<batch<<" iteration "<<i<<"\t||J||: "<<jn<<"\t||F||: "<<fn<<"\t||step||: " << sn << "\t||Hg||: " << hgn << "\t||H: " << hn<<endl; 
+				cout	<< "solution found batch " << batch
+					<<" iteration " <<i
+					<<"\t||J||: "<<jn
+					<<"\t||F||: "<<fn
+					<<"\t||step||: " << sn 
+					<< "\t||Hg||: " << hgn 
+					<< "\t||H: " << hn<<endl; 
 				return; 
 			}
 			if (sn < 1e-4) break;
@@ -158,7 +160,12 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 //	        cout <<"batch: "<<batch<< "\tsatness: " << d /*d * 2*/ <<endl;
 	} while (batch < 6); 
 	if (fname) cout<<fname<<'\t';
-	cout << "min||J||: " << minj<<"\tmin||F||: " <<minf << "\tmin||step||: " << mins << "\tx error: " << sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))<< "\tmin||Hg||: "<<minhg <<"\tmin||H||:"<<minhn <<endl;
+	cout 	<< "min||J||: " << minj
+		<<"\tmin||F||: " << minf 
+		<< "\tmin||step||: " << mins 
+		<< "\tx error: " << sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))
+		<< "\tmin||Hg||: "<< minhg 
+		<<"\tmin||H||:"<<minhn <<endl;
 }
 
 int main(int argc, char** argv) {
