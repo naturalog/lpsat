@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <fstream>
 #include <sys/wait.h>
+#include <Eigen/Sparse>
 
 using namespace std;
 using namespace Eigen;
@@ -15,6 +16,8 @@ using namespace Eigen;
 typedef float scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
 const scalar one = 1, two = 2;
+
+#define HALLEY
 
 inline mat round(const mat& x) {
 	mat r = x;
@@ -25,7 +28,7 @@ inline mat round(const mat& x) {
 }
 
 // note: assuming variable cannot appear more than once at the same clause
-inline scalar eval(const mat& clause, const mat& x, mat& g) {
+/*inline scalar eval(const mat& clause, const mat& x, mat& g) {
 	scalar r = one, p, xn;
 	g = mat::Ones(1, x.rows());
 	for (uint n = 0; n < clause.cols(); n++) 
@@ -38,7 +41,7 @@ inline scalar eval(const mat& clause, const mat& x, mat& g) {
 		} else g(0, n) = 0;
 //	g *= r;
 	return r;// * r / two;
-}
+}*/
 template<typename T> T sgn(const T& t) { return t>0?1:-1; }
 inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
         g = mat::Zero(1, x.rows());
@@ -50,13 +53,13 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 	g(0, abs(a) - 1) = -sgn(a) * _b * _c;
 	g(0, abs(b) - 1) = -sgn(b) * _a * _c;
 	g(0, abs(c) - 1) = -sgn(c) * _a * _b;
-
+#ifdef HALLEY
 	H = mat::Zero(x.rows(), x.rows());
 	H(abs(a) - 1, abs(a) - 1) = H(abs(b) - 1, abs(b) - 1) = H(abs(c) - 1, abs(c) - 1) = 0;
 	H(abs(a) - 1, abs(b) - 1) = H(abs(b) - 1, abs(a) - 1) = sgn(a)*sgn(b)*_c;
 	H(abs(a) - 1, abs(c) - 1) = H(abs(c) - 1, abs(a) - 1) = sgn(a)*sgn(c)*_b;
 	H(abs(b) - 1, abs(c) - 1) = H(abs(c) - 1, abs(b) - 1) = sgn(b)*sgn(c)*_a;
-
+#endif
 	return _a * _b * _c;
 }
 
@@ -71,17 +74,17 @@ bool eval(const mat& m, const mat& x) {
 void read(istream& is, uint iters, uint print, const char* fname = 0) {
 	string str;
         uint rows, cols, n = 0, batch = 0;
-	scalar minj = HUGE_VAL, minf = HUGE_VAL;
+	scalar minj = HUGE_VAL, minf = HUGE_VAL, mins = HUGE_VAL;
 	int v;
 	do { getline(is, str); } while (str[0] == 'c');
         sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
 
 	mat	//m = mat::Zero(rows, cols),
-		J = mat::Zero(rows + cols, cols),
-		F = mat::Zero(rows + cols, 1),
-		r = mat::Ones(rows, 1),
-		D = mat::Zero(rows, 3),
-		g, x;
+		&J = *new mat(mat::Zero(rows + cols, cols)), g;
+	mat	&F = *new mat(mat::Zero(rows + cols, 1)),
+		&r = *new mat(mat::Ones(rows, 1)),
+		&D = *new mat(mat::Zero(rows, 3)),
+		x;
 
         for (; n < rows; n++) {
                 getline(is, str);
@@ -92,11 +95,18 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 		}
         }
 
-	mat step, *H = new mat[F.rows()];
-
+	mat step;
+	mat *H = new mat[F.rows()];
 	do {
-		batch++;
-		x = mat::Ones(cols, 1) * fabs(batch % 2 ? one - pow(3./4.,(batch-1)/2) : pow(3./4.,batch/2));
+		x = mat::Ones(cols, 1);// * fabs(batch % 2 ? one - pow(3./4.,(batch-1)/2) : pow(3./4.,batch/2));
+		switch (batch++) {
+			case 0: x *= 0; break;
+			case 1: x *= 1; break;
+			case 2: x *= .5; break;
+			case 3: x *= .25; break;
+			case 4: x *= .75; break;
+			default: return;
+		}
 		for (uint i = 1; i <= iters; i++) {
 		        for (n = 0; n < rows; n++) {
 				F(n, 0) = eval(/*m*/D(n,0),D(n,1),D(n,2), x, g, H[n]);
@@ -106,29 +116,41 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 				scalar t = x(n - rows, 0);
 					F(n, 0) = /*pow(*/t * (one - t);
 					J(n, n - rows) = (one - two * t);
+#ifdef HALLEY
 					H[n] = mat::Zero(x.rows(), x.rows());
 					H[n](n - rows, n - rows) = -two;
+#endif
 			}
 // https://www8.cs.umu.se/~viklands/tensor.pdf
 			JacobiSVD<mat> svd(J, ComputeFullU | ComputeFullV);
 			step = -svd.solve(F);
+#ifdef HALLEY
 			mat Hg(F.rows(), step.rows());
-			for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
+			for (uint j = 0; j < Hg.rows(); j++) 
+//				for (uint l = 0; l < Hg.cols(); l++) 
+//					Hg(j, l) = (step.transpose() * H[j].col(l))(0,0);
+					Hg.row(j) = step.transpose() * H[j];
 			JacobiSVD<mat> svd2(J + Hg, ComputeFullU | ComputeFullV);
-			x += step - svd2.solve(Hg * step) / two;
+			step -= svd2.solve(Hg * step) / two;
+#endif
+			x += step;
 			if (i % print == 0) 
 				cout<<endl<<F.transpose()<<endl
 					<<endl<<x.transpose()<<endl;
-			if (/*F.norm() < 1e-3*/ eval(D, x) ) { if (fname) cout<<fname<<'\t'; cout<<"solution found batch "<<batch<<" iteration "<<i<<" ||J||: "<<J.norm()<<" ||F||: "<<F.norm()<<endl; return; }
-			if (J.norm() < 1e-3) break;
+			if (eval(D, x)) { 
+				if (fname) cout<<fname<<'\t'; 
+				cout<<"solution found batch "<<batch<<" iteration "<<i<<" ||J||: "<<J.norm()<<" ||F||: "<<F.norm() <<" ||step||: " << step.norm()<<endl; 
+				return; 
+			}
+			minj = min(minj, J.norm());
+			minf = min(minf, F.norm());
+			mins = min(mins, step.norm());
 		}
-		minj = min(minj, J.norm());
-		minf = min(minf, F.norm());
 //        	if (fname) cout<<fname<<'\t';
 //	        cout <<"batch: "<<batch<< "\tsatness: " << d /*d * 2*/ <<endl;
-	} while (batch < 20); 
+	} while (batch < 4); 
 	if (fname) cout<<fname<<'\t';
-	cout << "min||J||: " << minj<<" min||F||: " <<minf << "\t x error: " << /*(x - round(x)).norm()*/sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))<<endl;
+	cout << "min||J||: " << minj<<" min||F||: " <<minf << " min||step||: " << mins << "\t x error: " << sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))<<endl;
 }
 
 int main(int argc, char** argv) {
@@ -140,11 +162,11 @@ int main(int argc, char** argv) {
 	if (argc == 3) read(cin, atoi(argv[1]), atoi(argv[2]));
 	else {
 		for (uint n = 3; n < argc; n++) {
-			if (!(pid = fork())) {
+	//		if (!(pid = fork())) {
 				read(*new ifstream(argv[n]), atoi(argv[1]), atoi(argv[2]), argv[n]);
-				return 0;
-			}
-			waitlist.push_back(pid);
+	//			return 0;
+	//		}
+	//		waitlist.push_back(pid);
 //			if ((n-2)%7 == 0) {
 //				for (int p : waitlist) waitpid(p, &ws, 0);
 //				waitlist.clear();
