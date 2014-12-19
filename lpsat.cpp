@@ -7,6 +7,7 @@
 #include <eigen3/Eigen/SVD>
 #include <iomanip>
 #include <fstream>
+#include <sys/wait.h>
 
 using namespace std;
 using namespace Eigen;
@@ -16,7 +17,7 @@ typedef Matrix<scalar, Dynamic, Dynamic> mat;
 const scalar one = 1, two = 2;
 
 // note: assuming variable cannot appear more than once at the same clause
-scalar eval(const mat& clause, const mat& x, mat& g) {
+inline scalar eval(const mat& clause, const mat& x, mat& g) {
 	scalar r = one, p;
 	g = mat::Ones(1, x.rows());
 	for (uint n = 0; n < clause.cols(); n++) 
@@ -29,7 +30,7 @@ scalar eval(const mat& clause, const mat& x, mat& g) {
 	return r;
 }
 
-void read(istream& is, uint iters, uint print) {
+void read(istream& is, uint iters, uint print, const char* fname = 0) {
 	string str;
         uint rows, cols, n = 0, batch = 0;
 	scalar d = 1;
@@ -69,17 +70,28 @@ void read(istream& is, uint iters, uint print) {
 			if (i % print == 0) 
 				cout<<endl<<F.transpose()<<endl
 					<<endl<<x.transpose()<<endl;
-			if (F.norm() < 1e-3) { cout<<"solution found"<<endl; return; }
+			if (F.norm() < 1e-3) { if (fname) cout<<fname<<'\t'; cout<<"solution found"<<endl; exit(0); }
 		}
 		d = min(d, one / F.norm());
 	} while (batch < 10); 
+	if (fname) cout<<fname<<'\t';
 	cout << "satness: " << d /*d * 2*/ <<endl;
+	exit(0);
 }
 
 int main(int argc, char** argv) {
-	if (argc != 3 && argc != 4) return 1;
-	if (argc == 4) cout<<argv[3]<<'\t';
+	if (argc < 3) return 1;
+	int ws;
+	pid_t pid;
+	vector<pid_t> waitlist;
 	std::cout << std::setprecision(2);
-	read(argc != 4 ? cin : *new ifstream(argv[3]), atoi(argv[1]), atoi(argv[2]));
+	if (argc == 3) read(cin, atoi(argv[1]), atoi(argv[2]));
+	else {
+		for (uint n = 3; n < argc; n++) 
+			if (!(pid = fork())) 
+				read(*new ifstream(argv[n]), atoi(argv[1]), atoi(argv[2]), argv[n]);
+			else waitlist.push_back(pid);
+		for (int p : waitlist) waitpid(p, &ws, 0);
+	}
 	return 0;
 }
