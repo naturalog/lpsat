@@ -81,7 +81,7 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 		F = mat::Zero(rows + cols, 1),
 		r = mat::Ones(rows, 1),
 		D = mat::Zero(rows, 3),
-		g, x, H;
+		g, x;
 
         for (; n < rows; n++) {
                 getline(is, str);
@@ -92,29 +92,29 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 		}
         }
 
+	mat step, *H = new mat[F.rows()];
+
 	do {
 		batch++;
 		x = mat::Ones(cols, 1) * fabs(batch % 2 ? one - pow(7./8.,(batch-1)/2) : pow(7./8.,batch/2));
 		for (uint i = 1; i <= iters; i++) {
 		        for (n = 0; n < rows; n++) {
-				F(n, 0) = eval(/*m*/D(n,0),D(n,1),D(n,2), x, g, H);
+				F(n, 0) = eval(/*m*/D(n,0),D(n,1),D(n,2), x, g, H[n]);
 				J.row(n) = g;
 			}
 		        for (n = rows; n < rows + cols; n++) {
 				scalar t = x(n - rows, 0);
-//			        for (uint k = 0; k < cols; k++) {
-//					F(n, 0) = exp(t * (one - t)) - one;
-//					J(n, n - rows) = (one - two * t) * (one + F(n, 0));
-					F(n, 0) = /*pow(*/t * (one - t)/*,2)/two*/;
-					J(n, n - rows) = (one - two * t);// * (t * (one - t));
-//					F(n, 0) += pow(t,2*(n-rows+1))*pow(one-t,2*k+2)/scalar(x.rows());//t * (one - t);
-//					J(n, n - rows) = (pow(t,2*(n-rows)+1)*pow(one-t,2*k+2)*scalar(2*(n-rows+1)) -
-//							 pow(t,2*(n-rows+1))*pow(one-t,2*k+1)*scalar(2*k+2))/scalar(x.rows()) ;//one - two * t;
-			//	}
+					F(n, 0) = /*pow(*/t * (one - t);
+					J(n, n - rows) = (one - two * t);
+					H[n] = mat::Zero(x.rows(), x.rows());
+					H[n](n - rows, n - rows) = -two;
 			}
 			JacobiSVD<mat> svd(J, ComputeFullU | ComputeFullV);
-			x -= svd.solve(F);// / (two*two*two);
-		//	x = round(x);
+			step = -svd.solve(F);
+			mat Hg(F.rows(), step.rows());
+			for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
+			JacobiSVD<mat> svd2(J + Hg, ComputeFullU | ComputeFullV);
+			x += step - svd2.solve(Hg * step) / two;
 			if (i % print == 0) 
 				cout<<endl<<F.transpose()<<endl
 					<<endl<<x.transpose()<<endl;
