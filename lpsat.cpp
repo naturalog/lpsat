@@ -6,11 +6,12 @@
 #include <Eigen/Dense>
 #include <eigen3/Eigen/SVD>
 #include <iomanip>
+#include <fstream>
 
 using namespace std;
 using namespace Eigen;
 
-typedef long double scalar;
+typedef float scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
 const scalar one = 1, two = 2;
 
@@ -75,8 +76,9 @@ void read(istream& is, uint iters, uint print) {
 }
 
 int main(int argc, char** argv) {
-	if (argc != 3) return 1;
+	if (argc != 3 && argc != 4) return 1;
+	if (argc == 4) cout<<argv[3]<<'\t';
 	std::cout << std::setprecision(2);
-	read(cin, atoi(argv[1]), atoi(argv[2]));
+	read(argc != 4 ? cin : *new ifstream(argv[3]), atoi(argv[1]), atoi(argv[2]));
 	return 0;
 }
