@@ -14,7 +14,7 @@ using namespace Eigen;
 
 typedef long double scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
-const scalar one = 1, two = 2;
+const scalar one = 1, two = 2, half = .5;
 
 #define HALLEY
 
@@ -51,19 +51,20 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 		_b = (b > 0 ? one - x(b-1,0) : x(-b-1,0)),
 		_c = (c > 0 ? one - x(c-1,0) : x(-c-1,0));
 
-	g(0, abs(a) - 1) = -sgn(a) * _b * _c;
-	g(0, abs(b) - 1) = -sgn(b) * _a * _c;
-	g(0, abs(c) - 1) = -sgn(c) * _a * _b;
+	uint aa = abs(a) - 1, ab = abs(b) - 1, ac = abs(c) - 1;
+
+	g(0, aa) = -sgn(a) * _b * _c;
+	g(0, ab) = -sgn(b) * _a * _c;
+	g(0, ac) = -sgn(c) * _a * _b;
 #ifdef HALLEY
 	H = mat::Zero(x.rows(), x.rows());
-	H(abs(a) - 1, abs(a) - 1) = H(abs(b) - 1, abs(b) - 1) = H(abs(c) - 1, abs(c) - 1) = 0;
-	H(abs(a) - 1, abs(b) - 1) = H(abs(b) - 1, abs(a) - 1) = sgn(a)*sgn(b)*_c;
-	H(abs(a) - 1, abs(c) - 1) = H(abs(c) - 1, abs(a) - 1) = sgn(a)*sgn(c)*_b;
-	H(abs(b) - 1, abs(c) - 1) = H(abs(c) - 1, abs(b) - 1) = sgn(b)*sgn(c)*_a;
+	H(aa, aa) = H(ab, ab) = H(ac, ac) = 0;
+	H(aa, ab) = H(ab, aa) = sgn(a)*sgn(b)*_c;
+	H(aa, ac) = H(ac, aa) = sgn(a)*sgn(c)*_b;
+	H(ab, ac) = H(ac, ab) = sgn(b)*sgn(c)*_a;
 #endif
 	return _a * _b * _c;
 }
-
 
 bool eval(const mat& m, const mat& x) {
 	mat g, H;
@@ -81,8 +82,8 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
         sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
 
 	mat	//m = mat::Zero(rows, cols),
-		&J = *new mat(mat::Zero(rows + cols, cols)), g;
-	mat	&F = *new mat(mat::Zero(rows + cols, 1)),
+		&J = *new mat(mat::Zero(rows + cols, cols)), g,
+		&F = *new mat(mat::Zero(rows + cols, 1)),
 		&r = *new mat(mat::Ones(rows, 1)),
 		&D = *new mat(mat::Zero(rows, 3)),
 		x;
@@ -99,7 +100,7 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 	mat step, sv, sv1;
 	mat *H = new mat[F.rows()];
 	do {
-		x = mat::Ones(cols, 1);// * fabs(batch % 2 ? one - pow(3./4.,(batch-1)/2) : pow(3./4.,batch/2));
+		x = mat::Ones(cols, 1);
 		switch (batch++) {
 			case 0: x *= .5; break;
 			case 1: x *= 1; break;
@@ -117,11 +118,11 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 			}
 		        for (n = rows; n < rows + cols; n++) {
 				scalar t = x(n - rows, 0);
-					F(n, 0) = /*pow(*/t * (one - t);
-					J(n, n - rows) = (one - two * t);
+					F(n, 0) = /*pow(*/t * (one - t) * half * pow(half, cols);
+					J(n, n - rows) = (one - two * t) * half * pow(half, cols);
 #ifdef HALLEY
 					H[n] = mat::Zero(x.rows(), x.rows());
-					H[n](n - rows, n - rows) = -two;
+					H[n](n - rows, n - rows) = -one * pow(half, cols);
 #endif
 			}
 // https://www8.cs.umu.se/~viklands/tensor.pdf
@@ -141,7 +142,7 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 					dd(rr, rr) = svd.singularValues()(rr) ? one / svd.singularValues()(rr) : 0;
 				mat jinv = svd.matrixV() * dd * svd.matrixU().transpose();
 //				cout<< <<endl;
-				cout<<"alpha: "<< M * sqrt((jinv.transpose() * jinv).trace()) * normhk<<'\t';
+				cout<<fname<<" alpha: "<< M * sqrt((jinv.transpose() * jinv).trace()) * normhk<<endl;
 			}
 //#endif
 			for (uint j = hgn = 0; j < F.rows(); hgn += H[j++].squaredNorm()) ;
