@@ -74,7 +74,7 @@ bool eval(const mat& m, const mat& x) {
 void read(istream& is, uint iters, uint print, const char* fname = 0) {
 	string str;
         uint rows, cols, n = 0, batch = 0;
-	scalar minj = HUGE_VAL, minf = HUGE_VAL, mins = HUGE_VAL;
+	scalar minj = HUGE_VAL, minf = HUGE_VAL, mins = HUGE_VAL, sn, minhg = HUGE_VAL, jn, fn, hgn, hn, minhn = HUGE_VAL;
 	int v;
 	do { getline(is, str); } while (str[0] == 'c');
         sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
@@ -103,8 +103,10 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 			case 0: x *= 0; break;
 			case 1: x *= 1; break;
 			case 2: x *= .5; break;
-			case 3: x *= .25; break;
-			case 4: x *= .75; break;
+			case 3: x *= 1./3.; break;
+			case 4: x *= 2./3.; break;
+			case 5: x *= .25; break;
+			case 6: x *= .75; break;
 			default: return;
 		}
 		for (uint i = 1; i <= iters; i++) {
@@ -137,20 +139,26 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 			if (i % print == 0) 
 				cout<<endl<<F.transpose()<<endl
 					<<endl<<x.transpose()<<endl;
+			hgn = 0;
+			for (uint j = 0; j < F.rows(); j++) hgn += H[j].squaredNorm();
+			minj = min(minj, jn = J.norm());
+			minf = min(minf, fn = F.norm());
+			mins = min(mins, sn = step.norm());
+			minhg = min(minhg, hgn = sqrt(hgn));
+			minhn = min(minhn, hn = Hg.norm());
+
 			if (eval(D, x)) { 
 				if (fname) cout<<fname<<'\t'; 
-				cout<<"solution found batch "<<batch<<" iteration "<<i<<" ||J||: "<<J.norm()<<" ||F||: "<<F.norm() <<" ||step||: " << step.norm()<<endl; 
+				cout<<"solution found batch "<<batch<<" iteration "<<i<<"\t||J||: "<<jn<<"\t||F||: "<<fn<<"\t||step||: " << sn << "\t||Hg||: " << hgn << "\t||H: " << hn<<endl; 
 				return; 
 			}
-			minj = min(minj, J.norm());
-			minf = min(minf, F.norm());
-			mins = min(mins, step.norm());
+			if (sn < 1e-4) break;
 		}
 //        	if (fname) cout<<fname<<'\t';
 //	        cout <<"batch: "<<batch<< "\tsatness: " << d /*d * 2*/ <<endl;
-	} while (batch < 4); 
+	} while (batch < 6); 
 	if (fname) cout<<fname<<'\t';
-	cout << "min||J||: " << minj<<" min||F||: " <<minf << " min||step||: " << mins << "\t x error: " << sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))<<endl;
+	cout << "min||J||: " << minj<<"\tmin||F||: " <<minf << "\tmin||step||: " << mins << "\tx error: " << sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))<< "\tmin||Hg||: "<<minhg <<"\tmin||H||:"<<minhn <<endl;
 }
 
 int main(int argc, char** argv) {
