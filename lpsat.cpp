@@ -71,7 +71,7 @@ bool eval(const mat& m, const mat& x) {
 void read(istream& is, uint iters, uint print, const char* fname = 0) {
 	string str;
         uint rows, cols, n = 0, batch = 0;
-	scalar d = HUGE_VAL;
+	scalar minj = HUGE_VAL, minf = HUGE_VAL;
 	int v;
 	do { getline(is, str); } while (str[0] == 'c');
         sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
@@ -96,7 +96,7 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 
 	do {
 		batch++;
-		x = mat::Ones(cols, 1) * fabs(batch % 2 ? one - pow(7./8.,(batch-1)/2) : pow(7./8.,batch/2));
+		x = mat::Ones(cols, 1) * fabs(batch % 2 ? one - pow(3./4.,(batch-1)/2) : pow(3./4.,batch/2));
 		for (uint i = 1; i <= iters; i++) {
 		        for (n = 0; n < rows; n++) {
 				F(n, 0) = eval(/*m*/D(n,0),D(n,1),D(n,2), x, g, H[n]);
@@ -109,6 +109,7 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 					H[n] = mat::Zero(x.rows(), x.rows());
 					H[n](n - rows, n - rows) = -two;
 			}
+// https://www8.cs.umu.se/~viklands/tensor.pdf
 			JacobiSVD<mat> svd(J, ComputeFullU | ComputeFullV);
 			step = -svd.solve(F);
 			mat Hg(F.rows(), step.rows());
@@ -118,16 +119,16 @@ void read(istream& is, uint iters, uint print, const char* fname = 0) {
 			if (i % print == 0) 
 				cout<<endl<<F.transpose()<<endl
 					<<endl<<x.transpose()<<endl;
-			if (F.norm() < 1e-3) { if (fname) cout<<fname<<'\t'; cout<<"solution found\t"<<(eval(D, x) ? "verified" : "bad eps")<<endl; exit(0); }
+			if (/*F.norm() < 1e-3*/ eval(D, x) ) { if (fname) cout<<fname<<'\t'; cout<<"solution found batch "<<batch<<" iteration "<<i<<" ||J||: "<<J.norm()<<" ||F||: "<<F.norm()<<endl; return; }
 			if (J.norm() < 1e-3) break;
 		}
-		d = min(d, F.norm());
+		minj = min(minj, J.norm());
+		minf = min(minf, F.norm());
 //        	if (fname) cout<<fname<<'\t';
 //	        cout <<"batch: "<<batch<< "\tsatness: " << d /*d * 2*/ <<endl;
-	} while (batch < 50); 
+	} while (batch < 20); 
 	if (fname) cout<<fname<<'\t';
-	cout << "final error: " << d /*d * 2*/ << "\t x error: " << /*(x - round(x)).norm()*/sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))<<endl;
-	exit(0);
+	cout << "min||J||: " << minj<<" min||F||: " <<minf << "\t x error: " << /*(x - round(x)).norm()*/sqrt(((-x.transpose()*x+x.transpose()*mat::Ones(x.rows(), x.cols())).norm())/scalar(x.rows()))<<endl;
 }
 
 int main(int argc, char** argv) {
@@ -138,10 +139,17 @@ int main(int argc, char** argv) {
 	std::cout << std::setprecision(2);
 	if (argc == 3) read(cin, atoi(argv[1]), atoi(argv[2]));
 	else {
-		for (uint n = 3; n < argc; n++) 
-			if (!(pid = fork())) 
+		for (uint n = 3; n < argc; n++) {
+			if (!(pid = fork())) {
 				read(*new ifstream(argv[n]), atoi(argv[1]), atoi(argv[2]), argv[n]);
-			else waitlist.push_back(pid);
+				return 0;
+			}
+			waitlist.push_back(pid);
+			if ((n-2)%7 == 0) {
+				for (int p : waitlist) waitpid(p, &ws, 0);
+				waitlist.clear();
+			}
+		}
 		for (int p : waitlist) waitpid(p, &ws, 0);
 	}
 	return 0;
