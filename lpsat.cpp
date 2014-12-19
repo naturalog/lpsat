@@ -47,9 +47,9 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 		_b = (b > 0 ? one - x(b-1,0) : x(-b-1,0)),
 		_c = (c > 0 ? one - x(c-1,0) : x(-c-1,0));
 
-	g(0, abs(a) - 1) = (a > 0 ? -_b * _c : _b * _c);
-	g(0, abs(b) - 1) = (b > 0 ? -_a * _c : _a * _c);
-	g(0, abs(c) - 1) = (c > 0 ? -_a * _b : _a * _b);
+	g(0, abs(a) - 1) = -sgn(a) * _b * _c;
+	g(0, abs(b) - 1) = -sgn(b) * _a * _c;
+	g(0, abs(c) - 1) = -sgn(c) * _a * _b;
 
 	H = mat::Zero(x.rows(), x.rows());
 	H(abs(a) - 1, abs(a) - 1) = H(abs(b) - 1, abs(b) - 1) = H(abs(c) - 1, abs(c) - 1) = 0;
@@ -145,10 +145,10 @@ int main(int argc, char** argv) {
 				return 0;
 			}
 			waitlist.push_back(pid);
-			if ((n-2)%7 == 0) {
-				for (int p : waitlist) waitpid(p, &ws, 0);
-				waitlist.clear();
-			}
+//			if ((n-2)%7 == 0) {
+//				for (int p : waitlist) waitpid(p, &ws, 0);
+//				waitlist.clear();
+//			}
 		}
 		for (int p : waitlist) waitpid(p, &ws, 0);
 	}
