@@ -31,7 +31,8 @@ scalar eval(const mat& clause, const mat& x, mat& g) {
 
 void read(istream& is, uint iters, uint print) {
 	string str;
-        uint rows, cols, n = 0;
+        uint rows, cols, n = 0, batch = 0;
+	scalar d = 1;
 	int v;
 	do { getline(is, str); } while (str[0] == 'c');
         sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
@@ -39,7 +40,6 @@ void read(istream& is, uint iters, uint print) {
 	mat	m = mat::Zero(rows, cols),
 		J = mat::Zero(rows + cols, cols),
 		F = mat::Zero(rows + cols, 1),
-		x = mat::Ones(cols, 1)/2,
 		r = mat::Ones(rows, 1),
 		g;
 
@@ -51,28 +51,29 @@ void read(istream& is, uint iters, uint print) {
 		}
         }
 
-	for (uint i = 1; i <= iters; i++) {
-	        for (n = 0; n < rows; n++) {
-			F(n, 0) = eval(m.row(n), x, g);
-			J.row(n) = g;
+	do {
+		batch++;
+		mat x = mat::Ones(cols, 1) * (batch % 2 ? one - pow(one/two,(batch-1)/2) : pow(one/two,batch/2));
+		for (uint i = 1; i <= iters; i++) {
+		        for (n = 0; n < rows; n++) {
+				F(n, 0) = eval(m.row(n), x, g);
+				J.row(n) = g;
+			}
+		        for (n = rows; n < rows + cols; n++) {
+				scalar t = x(n - rows, 0);
+				F(n, 0) = t * (one - t);
+				J(n, n - rows) = one - two * t;
+			}
+			JacobiSVD<mat> svd(J, ComputeFullU | ComputeFullV);
+			x -= svd.solve(F);
+			if (i % print == 0) 
+				cout<<endl<<F.transpose()<<endl
+					<<endl<<x.transpose()<<endl;
+			if (F.norm() < 1e-3) { cout<<"solution found"<<endl; return; }
 		}
-	
-	        for (n = rows; n < rows + cols; n++) {
-			scalar t = x(n - rows, 0);
-			F(n, 0) = t * (one - t);
-			J(n, n - rows) = one - two * t;
-		}
-
-//		cout<<endl<<J<<endl;
-		JacobiSVD<mat> svd(J, ComputeFullU | ComputeFullV);
-		x -= svd.solve(F);
-		if (i % print == 0) 
-			cout<<endl<<F.transpose()<<endl
-				<<endl<<x.transpose()<<endl;
-	}
-	scalar d = 1;
-	for (n = 0; n < x.rows(); n++) if (fabs(x(n, 0) - .5) < d) d = fabs(x(n, 0) - .5);
-	cout << "satness from 0 to 1: " << d * 2 <<endl;
+		d = min(d, one / F.norm());
+	} while (batch < 10); 
+	cout << "satness: " << d /*d * 2*/ <<endl;
 }
 
 int main(int argc, char** argv) {
