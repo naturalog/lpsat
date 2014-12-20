@@ -12,12 +12,13 @@
 using namespace std;
 using namespace Eigen;
 
-typedef long double scalar;
+typedef float scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
-const scalar one = 1, two = 2, half = .5, three = 3, four = 4, ln2 = log(scalar(2));
+const scalar one = 1, two = 2, half = .5, three = 3, four = 4, ln2 = log(scalar(2)), six = 6;
 
 #define HALLEY
-//#define CLASSIC
+#define CLASSIC
+//#define EXP_EQS
 
 inline mat round(const mat& x) {
 	mat r = x;
@@ -65,21 +66,36 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 		ggb = 0,
 		ggc = 0;
 #else
+#ifdef EXP_EQS
+	scalar 	_a = pow(two, (a > 0 ? one - va : va)),
+		_b = pow(two, (b > 0 ? one - vb : vb)),
+		_c = pow(two, (c > 0 ? one - vc : vc));
+
+	scalar	ga = -sgn(a) * _a * ln2,
+		gb = -sgn(b) * _b * ln2,
+		gc = -sgn(c) * _c * ln2;
+
+	scalar	gga = -sgn(a) * ga * ln2,
+		ggb = -sgn(b) * gb * ln2,
+		ggc = -sgn(c) * gc * ln2;
+	_a--; _b--; _c--;
+#else
 	scalar 	da = one / (one + va * va),
 		db = one / (one + vb * vb),
 		dc = one / (one + vc * vc);
 
-	scalar 	_a = exp(ln2 * (a > 0 ? one - va : va)),// * da,
-		_b = exp(ln2 * (b > 0 ? one - vb : vb)),//* db,
-		_c = exp(ln2 * (c > 0 ? one - vc : vc));// * dc;
+	scalar 	_a = (a > 0 ? one - va : va) * da,
+		_b = (b > 0 ? one - vb : vb) * db,
+		_c = (c > 0 ? one - vc : vc) * dc;
 
-	scalar	ga = -sgn(a) * _a * ln2,//(a > 0 ? va * va - va * two - one : (one - va) * (one + va) ) * da * da,
-		gb = -sgn(b) * _b * ln2,//(b > 0 ? vb * vb - vb * two - one : (one - vb) * (one + vb) ) * db * db,
-		gc = -sgn(c) * _c * ln2;//(c > 0 ? vc * vc - vc * two - one : (one - vc) * (one + vc) ) * dc * dc;
+	scalar	ga = (a > 0 ? va * va - va * two - one : (one - va) * (one + va) ) * da * da,
+		gb = (b > 0 ? vb * vb - vb * two - one : (one - vb) * (one + vb) ) * db * db,
+		gc = (c > 0 ? vc * vc - vc * two - one : (one - vc) * (one + vc) ) * dc * dc;
 
-	scalar	gga = -sgn(a) * ga * ln2,//(a > 0 ? -two * (one + va) * (va * va - four * va + one) : two * va * (va * va - three) ) * da * da * da,
-		ggb = -sgn(a) * gb * ln2,//(b > 0 ? -two * (one + vb) * (vb * vb - four * vb + one) : two * vb * (vb * vb - three) ) * db * db * db,
-		ggc = -sgn(a) * gc * ln2;//(c > 0 ? -two * (one + vc) * (vc * vc - four * vc + one) : two * vc * (vc * vc - three) ) * dc * dc * dc;
+	scalar	gga = (a > 0 ? -two * (one + va) * (va * va - four * va + one) : two * va * (va * va - three) ) * da * da * da,
+		ggb = (b > 0 ? -two * (one + vb) * (vb * vb - four * vb + one) : two * vb * (vb * vb - three) ) * db * db * db,
+		ggc = (c > 0 ? -two * (one + vc) * (vc * vc - four * vc + one) : two * vc * (vc * vc - three) ) * dc * dc * dc;
+#endif
 #endif
 	uint aa = abs(a) - 1, ab = abs(b) - 1, ac = abs(c) - 1;
 
@@ -198,6 +214,7 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 			if (found || (i%print == 0)) { 
 				if (fname) { if (found) cout<<"found solution\t"<<fname<<endl; }
 				cout	<< "F: " << F.transpose() <<endl << endl
+				//	<< "J: " << J.transpose() <<endl << endl
 					<< "x: " << x.transpose() <<endl << endl
 					<< "step: " << step.transpose() << endl << endl
 					<< "alpha: " << alpha 
