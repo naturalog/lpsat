@@ -14,10 +14,10 @@ using namespace Eigen;
 
 typedef long double scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
-const scalar one = 1, two = 2, half = .5, three = 3, four = 4;
+const scalar one = 1, two = 2, half = .5, three = 3, four = 4, ln2 = log(scalar(2));
 
 #define HALLEY
-#define CLASSIC
+//#define CLASSIC
 
 inline mat round(const mat& x) {
 	mat r = x;
@@ -69,17 +69,17 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 		db = one / (one + vb * vb),
 		dc = one / (one + vc * vc);
 
-	scalar 	_a = (a > 0 ? one - va : va) * da,
-		_b = (b > 0 ? one - vb : vb) * db,
-		_c = (c > 0 ? one - vc : vc) * dc;
+	scalar 	_a = exp(ln2 * (a > 0 ? one - va : va)),// * da,
+		_b = exp(ln2 * (b > 0 ? one - vb : vb)),//* db,
+		_c = exp(ln2 * (c > 0 ? one - vc : vc));// * dc;
 
-	scalar	ga = (a > 0 ? va * va - va * two - one : (one - va) * (one + va) ) * da * da,
-		gb = (b > 0 ? vb * vb - vb * two - one : (one - vb) * (one + vb) ) * db * db,
-		gc = (c > 0 ? vc * vc - vc * two - one : (one - vc) * (one + vc) ) * dc * dc;
+	scalar	ga = -sgn(a) * _a * ln2,//(a > 0 ? va * va - va * two - one : (one - va) * (one + va) ) * da * da,
+		gb = -sgn(b) * _b * ln2,//(b > 0 ? vb * vb - vb * two - one : (one - vb) * (one + vb) ) * db * db,
+		gc = -sgn(c) * _c * ln2;//(c > 0 ? vc * vc - vc * two - one : (one - vc) * (one + vc) ) * dc * dc;
 
-	scalar	gga = (a > 0 ? two * (one + va) * (va * va - four * va + one) : two * va * (va * va - three) ) * da * da * da,
-		ggb = (b > 0 ? two * (one + vb) * (vb * vb - four * vb + one) : two * vb * (vb * vb - three) ) * db * db * db,
-		ggc = (c > 0 ? two * (one + vc) * (vc * vc - four * vc + one) : two * vc * (vc * vc - three) ) * dc * dc * dc;
+	scalar	gga = -sgn(a) * ga * ln2,//(a > 0 ? -two * (one + va) * (va * va - four * va + one) : two * va * (va * va - three) ) * da * da * da,
+		ggb = -sgn(a) * gb * ln2,//(b > 0 ? -two * (one + vb) * (vb * vb - four * vb + one) : two * vb * (vb * vb - three) ) * db * db * db,
+		ggc = -sgn(a) * gc * ln2;//(c > 0 ? -two * (one + vc) * (vc * vc - four * vc + one) : two * vc * (vc * vc - three) ) * dc * dc * dc;
 #endif
 	uint aa = abs(a) - 1, ab = abs(b) - 1, ac = abs(c) - 1;
 
@@ -111,7 +111,7 @@ bool eval(const mat& m, const mat& x, bool print = false) {
 void read(istream& is, uint iters, uint print, uint batches, const char* fname = 0) {
 	string str;
         uint rows, cols, n = 0, batch = 0;
-	scalar minj = HUGE_VAL, minf = HUGE_VAL, mins = HUGE_VAL, sn, minhg = -HUGE_VAL, jn, fn, hgn, hn, minhn = -HUGE_VAL;
+	scalar minj = HUGE_VAL, minf = HUGE_VAL, mins = HUGE_VAL, sn, minhg = -HUGE_VAL, jn, fn, hgn, hn, minhn = -HUGE_VAL, alpha;
 	int v;
 	do { getline(is, str); } while (str[0] == 'c');
         sscanf(str.c_str(), "p cnf %d %d", &cols, &rows);
@@ -152,7 +152,7 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 		        for (n = rows; n < rows + cols; n++) {
 				scalar t = x(n - rows, 0);
 				scalar e = exp(t * (one - t) * half);
-				F(n, 0) = e - 1;
+				F(n, 0) = e - one;
 				J(n, n - rows) = (t - half) * e;
 #ifdef HALLEY
 				H[n] = mat::Zero(x.rows(), x.rows());
@@ -173,9 +173,9 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 			for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
 			JacobiSVD<mat> svd2(J + Hg, ComputeFullU | ComputeFullV);
 			x += step - svd2.solve(Hg * step) / two;
-//			for (uint j = 0; j < x.rows(); j++) if (x(j, 0) < -1) x(j, 0) = -1; else if (x(j,0) > 2) x(j, 0) = 2; 
+			for (uint j = 0; j < x.rows(); j++) if (x(j, 0) < -6) x(j, 0) = -6; else if (x(j,0) > 7) x(j, 0) = 7; 
 			bool found = eval(D, x);
-			if (i == 1/* || found*/) {
+//			if (i == 1/* || found*/) {
 				scalar 	normhk = step.norm(), 
 					M = sqrt((Hg.transpose() * Hg).trace());
 				mat dd = mat::Zero(J.cols(), J.rows());
@@ -183,10 +183,10 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 					dd(rr, rr) = svd.singularValues()(rr) ? one / svd.singularValues()(rr) : 0;
 				mat jinv = svd.matrixV() * dd * svd.matrixU().transpose();
 //				cout<< <<endl;
-				scalar alpha = M * sqrt((jinv.transpose() * jinv).trace()) * normhk;
-				if (i%print == 0) cout<<fname<<" alpha: "<< M * sqrt((jinv.transpose() * jinv).trace()) * normhk<< "\tx0: "<<x0<<endl;
-			//	if (alpha > D.rows()) break;
-			}
+				alpha = M * sqrt((jinv.transpose() * jinv).trace()) * normhk;
+//				if (i%print == 0) cout<<fname<<" alpha: "<< alpha << "\tx0: "<<x0<<endl;
+//				if (alpha > 25) break;
+//			}
 //#endif
 			for (uint j = hgn = 0; j < F.rows(); hgn += H[j++].squaredNorm()) ;
 			minj = min(minj, jn = J.norm());
@@ -199,10 +199,11 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 				if (fname) { if (found) cout<<"found solution\t"<<fname<<endl; }
 				cout	<< "F: " << F.transpose() <<endl << endl
 					<< "x: " << x.transpose() <<endl << endl
-					<< "step: " << step.transpose() << endl << endl;
-				cout << "output: "; eval(D,x,true);
-				cout	<< "batch " << batch
-					<<" iteration " <<i
+					<< "step: " << step.transpose() << endl << endl
+					<< "alpha: " << alpha 
+//				cout << "output: "; eval(D,x,true);
+					<<"\tbatch " << batch
+					<<"\titeration " <<i
 					<<"\t||J||: "<<jn
 					<<"\t||F||: "<<fn
 					<<"\t||step||: " << sn 
@@ -244,17 +245,17 @@ int main(int argc, char** argv) {
 	if (argc == 3) read(cin, atoi(argv[1]), atoi(argv[2]), atoi(argv[3]));
 	else {
 		for (uint n = 4; n < argc; n++) {
-			if (!(pid = fork())) {
+//			if (!(pid = fork())) {
 				read(*new ifstream(argv[n]), atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), argv[n]);
-				return 0;
-			}
-			waitlist.push_back(pid);
-			if ((n-3)%7 == 0) {
+//				return 0;
+//			}
+//			waitlist.push_back(pid);
+//			if ((n-3)%7 == 0) {
 				//for (int p : waitlist) 
-				waitpid(*waitlist.begin(), &ws, 0);
-				waitlist.erase(waitlist.begin());
+//				waitpid(*waitlist.begin(), &ws, 0);
+//				waitlist.erase(waitlist.begin());
 //				waitlist.clear();
-			}
+//			}
 		}
 		for (int p : waitlist) waitpid(p, &ws, 0);
 	}
