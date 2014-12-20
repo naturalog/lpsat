@@ -144,12 +144,12 @@ class solver {
 	}
 	
 	scalar sn, alpha;
-	mat step, sv, sv1, *H, J, F, D, x, g, dd;
+	mat step, sv, sv1, *H, J, F, D, x, g, dd, hstep;
 	scalar x0, normhk, M, hgn;
 	bool found;
 	
 public:
-	solver(istream& is, uint iters, uint print, uint batches, const char* fname = 0) {
+	void run(istream& is, uint iters, uint print, uint batches, const char* fname = 0) {
 		string str;
 	        uint rows, cols, n, batch = 0;
 		int v;
@@ -211,7 +211,7 @@ public:
 				for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
 	
 				JacobiSVD<mat> svd2(J + Hg, ComputeFullU | ComputeFullV);
-				x += step - svd2.solve(Hg * step) / two;
+				x += (hstep = step - svd2.solve(Hg * step) / two);
 	
 				for (uint j = 0; j < x.rows(); j++) if (x(j, 0) < -6) x(j, 0) = -6; else if (x(j,0) > 7) x(j, 0) = 7; 
 				
@@ -226,6 +226,7 @@ public:
 				alpha = M * (svd.matrixV() * dd * svd.matrixU().transpose()).norm() * normhk;
 				for (uint j = hgn = 0; j < F.rows(); hgn += H[j++].squaredNorm()) ;
 				hgn = sqrt(hgn);
+				sn = hstep.norm();
 	
 				if (found || (i%print == 0)) { 
 					if (fname) { if (found) cout<<"found solution\t"<<fname<<endl; }
@@ -237,15 +238,16 @@ public:
 						<<"\titeration " <<i
 						<<"\t||J||: "<< J.norm()
 						<<"\t||F||: "<< F.norm()
-						<<"\t||step||: " << (sn = normhk)
+						<<"\t||step||: " << hstep.norm()
 						<< "\t||Hg||: " << hgn 
 						<< "\t||H||: " << Hg.norm() <<endl;
 				}
-				if (found)	exit(0); 
+				if (found)	return; 
 				if (sn < 1e-8)	break;
 			}
 		} while (batch < batches); 
 		if (fname) cout<<"cannot find solution\t"<<fname<<endl;
+		delete this;
 	}
 };
 
@@ -259,11 +261,11 @@ int main(int argc, char** argv) {
 	pid_t pid;
 	vector<pid_t> waitlist;
 	std::cout << std::setprecision(2);
-	if (argc == 3) new solver(cin, atoi(argv[1]), atoi(argv[2]), atoi(argv[3]));
+	if (argc == 3) (new solver())->run(cin, atoi(argv[1]), atoi(argv[2]), atoi(argv[3]));
 	else {
 		for (uint n = 4; n < argc; n++) {
 //			if (!(pid = fork())) {
-				new solver(*new ifstream(argv[n]), atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), argv[n]);
+				(new solver())->run(*new ifstream(argv[n]), atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), argv[n]);
 //				return 0;
 //			}
 //			waitlist.push_back(pid);
