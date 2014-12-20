@@ -14,11 +14,12 @@ using namespace Eigen;
 
 typedef float scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
-const scalar one = 1, two = 2, half = .5, three = 3, four = 4, ln2 = log(scalar(2)), six = 6;
+const scalar one = 1, two = 2, half = .5, three = 3, four = 4, ln2 = log(scalar(2)), six = 6, pi2 = acos(-1)/scalar(2);
 
 #define HALLEY
-#define CLASSIC
+//#define CLASSIC
 //#define EXP_EQS
+#define SIN_EQS
 
 inline mat round(const mat& x) {
 	mat r = x;
@@ -64,8 +65,32 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 
 	scalar	gga = 0,
 		ggb = 0,
-		ggc = 0;
+		ggc = 0,
+		gab = ga * gb * _c,
+		gac = ga * gc * _b,
+		gbc = gb * gc * _a,
+		res = _a * _b * _c;
 #else
+#ifdef SIN_EQS
+	scalar 	_a = (a > 0 ? one - va : va),
+		_b = (b > 0 ? one - vb : vb),
+		_c = (c > 0 ? one - vc : vc);
+
+	scalar	res = sin(pi2 * _a * _b * _c),
+		cs  = cos(pi2 * _a * _b * _c);
+
+	scalar	ga = -pi2 * sgn(a) * _b * _c * cs,
+		gb = -pi2 * sgn(b) * _a * _c * cs,
+		gc = -pi2 * sgn(c) * _a * _b * cs;
+
+	scalar	gga = -pi2 * pi2 * sgn(a) * _b * _c * _b * _c * res,
+		ggb = -pi2 * pi2 * sgn(b) * _a * _c * _a * _c * res,
+		ggc = -pi2 * pi2 * sgn(c) * _a * _b * _a * _b * res,
+		gab = -pi2 * pi2 * sgn(a) * sgn(b) * _c * _b * _a * _c * res,
+		gac = -pi2 * pi2 * sgn(a) * sgn(c) * _c * _b * _a * _b * res,
+		gbc = -pi2 * pi2 * sgn(b) * sgn(c) * _a * _c * _a * _b * res;
+
+#endif
 #ifdef EXP_EQS
 	scalar 	_a = pow(two, (a > 0 ? one - va : va)),
 		_b = pow(two, (b > 0 ? one - vb : vb)),
@@ -77,9 +102,14 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 
 	scalar	gga = -sgn(a) * ga * ln2,
 		ggb = -sgn(b) * gb * ln2,
-		ggc = -sgn(c) * gc * ln2;
+		ggc = -sgn(c) * gc * ln2,
+		gab = ga * gb * _c,
+		gac = ga * gc * _b,
+		gbc = gb * gc * _a;
 	_a--; _b--; _c--;
-#else
+	scalar	res = _a * _b * _c;
+#endif
+#ifdef RAT_EQS
 	scalar 	da = one / (one + va * va),
 		db = one / (one + vb * vb),
 		dc = one / (one + vc * vc);
@@ -94,7 +124,11 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 
 	scalar	gga = (a > 0 ? -two * (one + va) * (va * va - four * va + one) : two * va * (va * va - three) ) * da * da * da,
 		ggb = (b > 0 ? -two * (one + vb) * (vb * vb - four * vb + one) : two * vb * (vb * vb - three) ) * db * db * db,
-		ggc = (c > 0 ? -two * (one + vc) * (vc * vc - four * vc + one) : two * vc * (vc * vc - three) ) * dc * dc * dc;
+		ggc = (c > 0 ? -two * (one + vc) * (vc * vc - four * vc + one) : two * vc * (vc * vc - three) ) * dc * dc * dc,
+		gab = ga * gb * _c,
+		gac = ga * gc * _b,
+		gbc = gb * gc * _a,
+		res = _a * _b * _c;
 #endif
 #endif
 	uint aa = abs(a) - 1, ab = abs(b) - 1, ac = abs(c) - 1;
@@ -107,11 +141,11 @@ inline scalar eval(int a, int b, int c, const mat& x, mat& g, mat& H) {
 	H(aa, aa) = gga;
 	H(ab, ab) = ggb;
 	H(ac, ac) = ggc;
-	H(aa, ab) = H(ab, aa) = ga * gb * _c;
-	H(aa, ac) = H(ac, aa) = ga * gc * _b;
-	H(ab, ac) = H(ac, ab) = gb * gc * _a;
+	H(aa, ab) = H(ab, aa) = gab;
+	H(aa, ac) = H(ac, aa) = gac;
+	H(ab, ac) = H(ac, ab) = gbc;
 #endif
-	return _a * _b * _c;
+	return res;
 }
 
 bool eval(const mat& m, const mat& x, bool print = false) {
@@ -189,7 +223,7 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 			for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
 			JacobiSVD<mat> svd2(J + Hg, ComputeFullU | ComputeFullV);
 			x += step - svd2.solve(Hg * step) / two;
-			for (uint j = 0; j < x.rows(); j++) if (x(j, 0) < -6) x(j, 0) = -6; else if (x(j,0) > 7) x(j, 0) = 7; 
+			for (uint j = 0; j < x.rows(); j++) if (x(j, 0) < -1) x(j, 0) = -1; else if (x(j,0) > 2) x(j, 0) = 2; 
 			bool found = eval(D, x);
 //			if (i == 1/* || found*/) {
 				scalar 	normhk = step.norm(), 
