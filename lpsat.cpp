@@ -141,10 +141,6 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 			case 0: x0 = .5; break;
 			case 1: x0 = 1; break;
 			case 2: x0 = 0; break;
-//			case 3: x *= 1./3.; break;
-//			case 4: x *= 2./3.; break;
-//			case 5: x *= .25; break;
-//			case 6: x *= .75; break;
 			default: x0 = scalar(batch)/scalar(batches); break;
 		}
 		x *= x0;
@@ -155,12 +151,19 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 			}
 		        for (n = rows; n < rows + cols; n++) {
 				scalar t = x(n - rows, 0);
-				F(n, 0) = /*pow(*/t * (one - t) * half * pow(half, cols);
-				J(n, n - rows) = (one - two * t) * half * pow(half, cols);
+				scalar e = exp(t * (one - t) * half);
+				F(n, 0) = e - 1;
+				J(n, n - rows) = (t - half) * e;
 #ifdef HALLEY
 				H[n] = mat::Zero(x.rows(), x.rows());
-				H[n](n - rows, n - rows) = -one * pow(half, cols);
+				H[n](n - rows, n - rows) = (t - three * half) * (t + half) * e;
 #endif
+//				F(n, 0) = /*pow(*/t * (one - t) * half * pow(half, cols);
+//				J(n, n - rows) = (one - two * t) * half * pow(half, cols);
+//#ifdef HALLEY
+//				H[n] = mat::Zero(x.rows(), x.rows());
+//				H[n](n - rows, n - rows) = -one * pow(half, cols);
+//#endif
 			}
 // https://www8.cs.umu.se/~viklands/tensor.pdf
 			JacobiSVD<mat> svd(J, ComputeFullU | ComputeFullV);
@@ -170,7 +173,7 @@ void read(istream& is, uint iters, uint print, uint batches, const char* fname =
 			for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
 			JacobiSVD<mat> svd2(J + Hg, ComputeFullU | ComputeFullV);
 			x += step - svd2.solve(Hg * step) / two;
-			for (uint j = 0; j < x.rows(); j++) if (x(j, 0) < -1) x(j, 0) = -1; else if (x(j,0) > 2) x(j, 0) = 2; 
+//			for (uint j = 0; j < x.rows(); j++) if (x(j, 0) < -1) x(j, 0) = -1; else if (x(j,0) > 2) x(j, 0) = 2; 
 			bool found = eval(D, x);
 			if (i == 1/* || found*/) {
 				scalar 	normhk = step.norm(), 
