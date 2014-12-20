@@ -205,8 +205,8 @@ public:
 				}
 // https://www8.cs.umu.se/~viklands/tensor.pdf
 				JacobiSVD<mat> svd(J, ComputeFullU | ComputeFullV);
-				mat Hg(F.rows(), step.rows());
 				step = -svd.solve(F);
+				mat Hg(F.rows(), step.rows());
 	
 				for (uint j = 0; j < Hg.rows(); j++) Hg.row(j) = step.transpose() * H[j];
 	
