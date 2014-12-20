@@ -14,7 +14,8 @@ using namespace Eigen;
 
 typedef float scalar;
 typedef Matrix<scalar, Dynamic, Dynamic> mat;
-const scalar one = 1, two = 2, half = .5, three = 3, four = 4, ln2 = log(scalar(2)), six = 6, pi2 = acos(-1) / scalar(2);
+const scalar 	one = 1, two = 2, half = .5, three = 3, four = 4,
+				ln2 = log(scalar(2)), six = 6, pi2 = acos(-1) / scalar(2);
 
 #define HALLEY
 #define CLASSIC
@@ -207,23 +208,19 @@ class solver {
 		}
 	}
 
-	void report(uint iter, uint print, const char* fname, uint batch) {
-		if (found || (iter % print == 0)) {
-			if (fname) {
-				if (found) cout << "found solution\t" << fname << endl;
-			}
-			cout 	<< "F: " << F.transpose() << endl << endl
-					<< "x: " << x.transpose() << endl << endl
-					<< "step: " << step.transpose() << endl << endl
-					<< "alpha: " << alpha
-					<< "\tbatch " << batch
-					<< "\titeration " << iter
-					<< "\t||J||: " << J.norm()
-					<< "\t||F||: " << F.norm()
-					<< "\t||step||: " << hstep.norm()
-					<< "\t||Hg||: " << hgn
-					<< "\t||H||: " << Hg.norm() << endl;
-		}
+	void report(uint iter, const char* fname, uint batch) {
+		if (fname) { if (found) cout << "found solution\t" << fname << endl;	}
+		cout 	<< "F: " << F.transpose() << endl << endl
+				<< "x: " << x.transpose() << endl << endl
+				<< "step: " << step.transpose() << endl << endl
+				<< "alpha: " << alpha
+				<< "\tbatch " << batch
+				<< "\titeration " << iter
+				<< "\t||J||: " << J.norm()
+				<< "\t||F||: " << F.norm()
+				<< "\t||step||: " << hstep.norm()
+				<< "\t||Hg||: " << hgn
+				<< "\t||H||: " << Hg.norm() << endl;
 	}
 
 	uint initialguess(uint batch, uint& batches) {
@@ -263,7 +260,7 @@ public:
 				cutx();
 				found = valid();
 				kant(svd);
-				report(i, print, fname, batch);
+				if (found || (i % print == 0)) report(i, fname, batch);
 				if (found) return;
 				if (hstep.norm() < 1e-8) break;
 			}
